@@ -1,261 +1,448 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
-using System.Threading.Tasks;
+using Microsoft.SharePoint.Client;
 using SP = Microsoft.SharePoint.Client;
+using System.Security;
+using System.Diagnostics;
 
 namespace SSIEntityFramework
 {
-  class SharePointDataSource : ISSIDataSource
-  {
-
-    #region Class Variables
-    private SP.ClientContext context_;
-    private string siteUrl_;
-    private string listName_;
-    private Entity entity_;
-    private Dictionary<dynamic, Entity> entities_;
-    #endregion Class Variables
-
-    //todo: Add Ctors
-
-    #region ISSIDataSource
-    /// <summary>
-    /// Get and set the connection string
-    /// </summary>
-    /// <remarks>Connection string is in the form of URL,ListName, where URL is the SharePoint site URL and ListName 
-    /// is the name of the list containing the entities.</remarks>
-    public string ConnectionString
+    public class SharePointDataSource : ISSIDataSource
     {
-      get
-      {
-        return string.Join(",", new string[] { siteUrl_, listName_ });
-      }
-      set
-      {
-        string[] parms = value.Split(new char[] { ',' }, 2);
-        siteUrl_ = parms[0];
-        listName_ = parms[1];
-      }
-    }
-
-    public void Connect()
-    {
-      // Get user identify - authtenticate if necessary
-
-      // Get any cached credentials
-      // Obtain information for communicating with the service:
-
-      // spContext.Credentials = System.Net.CredentialCache.DefaultNetworkCredentials;
-      using (context_ = MSDN.Samples.ClaimsAuth.ClaimClientContext.GetAuthenticatedContext(ConnectionString))
-      {
-
-        SP.ListItemCollection collection;
-        SP.List list = context_.Web.Lists.GetByTitle(listName_);
-        SP.CamlQuery query = CreateListQuery();
-        collection = list.GetItems(query);
-        context_.Load(collection);
-
-        context_.ExecuteQuery();
-
-        foreach (var item in collection)
+        private string listName_;
+        private Dictionary<dynamic, Entity> records_;
+        private Dictionary<dynamic, Entity> deletedRecords_;
+        private Entity entity_;
+        ClientContext clientContext_;
+        private bool connected_ = false;
+        public string ConnectionString { get; set; }
+        public string listName
         {
+            get { return listName_; }
+            set { listName_ = value; }
+        }
+        public enum AuthenticationType
+        {
+            User,
+            AddInPrincipal
+        }
+        public AuthenticationType AuthType { get; set; }
 
-          foreach (System.Collections.Generic.KeyValuePair<string, object> dictItem in item.FieldValues)
-          {
-            if ((null != dictItem.Value) &&
-                (dictItem.Value.GetType() == typeof(SP.FieldLookupValue)))
-            {
-              SP.FieldLookupValue lookupValue = dictItem.Value as SP.FieldLookupValue;
-              if (null != lookupValue) entity_[StripHTML.StripTagsCharArray(dictItem.Key)].Value =
-                  StripHTML.StripTagsCharArray(lookupValue.LookupValue);
-            }
-            else if ((null != dictItem.Value) &&
-                dictItem.Value.GetType() == typeof(SP.FieldUserValue[]))
-            {
-              SP.FieldUserValue[] userValues = dictItem.Value as SP.FieldUserValue[];
-              System.Diagnostics.Debug.Assert(null != userValues);
+        //User Credentials
+        public string UserName { get; set; }
+        public string Password { get; set; }
 
-              // clear out the value befor updating
-              foreach (SP.FieldUserValue userValue in userValues)
-              {
-                if (null != userValue)
-                {
-                  entity_[StripHTML.StripTagsCharArray(dictItem.Key)].Value =
-                      StripHTML.StripTagsCharArray(userValue.LookupValue) + ";";
-                }
-              }
+        //Add-In Principal Credentials
+        public string ClientId
+        {
+            get { return TokenHelper.ClientId; }
 
-            }
-            else if ((null != dictItem.Value) &&
-                dictItem.Value.GetType() == typeof(SP.FieldUserValue))
-            {
-              SP.FieldUserValue userValue = dictItem.Value as SP.FieldUserValue;
-              if (null != userValue)
-                entity_[StripHTML.StripTagsCharArray(dictItem.Key)].Value =
-                    StripHTML.StripTagsCharArray(userValue.LookupValue);
-            }
-            else if ((null != dictItem.Value) &&
-                (dictItem.Value.GetType() == typeof(SP.FieldLookupValue[])))
-            {
-              SP.FieldLookupValue[] lookupValues = dictItem.Value as SP.FieldLookupValue[];
-              System.Diagnostics.Debug.Assert(null != lookupValues);
+            set { TokenHelper.ClientId = value; }
+        }
+        public string ClientSecret
+        {
+            get { return TokenHelper.ClientSecret; }
 
-              // clear out the value befor updating
-              foreach (SP.FieldLookupValue lookupValue in lookupValues)
-              {
-                if (null != lookupValue)
-                {
-                  entity_[StripHTML.StripTagsCharArray(dictItem.Key)].Value =
-                      StripHTML.StripTagsCharArray(lookupValue.LookupValue) + ";";
-                }
-              }
-
-            }
-            else if (null != dictItem.Value)
-            {
-              entity_[StripHTML.StripTagsCharArray(dictItem.Key)].Value = dictItem.Value;
-            }
-
-          }
-          entities_[entity_.ID] = new Entity(entity_);
+            set { TokenHelper.ClientSecret = value; }
         }
 
-      }
-      context_ = null;
-    }
-
-    public void Connect(string connectionString)
-    {
-      ConnectionString = connectionString;
-      Connect();
-    }
-
-    public void Disconnect()
-    {
-      context_ = null;
-
-      // Update the sharepoint List
-      // Get the item from sharepoint (if it exists)
-      SP.ListItem item = GetSPItem(siteUrl_, listName_, entity_.ID);
-
-      // Write the values to the sharepoint item
-
-      // IF it doesn't exist add it to sharepoint
-
-      entities_.Clear();
-    }
-
-    public bool IsConnected()
-    {
-      return true;
-    }
-
-    public Type EntityDotNetType
-    {
-      get
-      {
-        return entity_.DotNetType;
-      }
-    }
-
-    public IEnumerator<Entity> GetEnumerator()
-    {
-      return entities_.Values.GetEnumerator();
-    }
-
-    public Entity GetEntity<IDType>(IDType id)
-    {
-      return entities_[id];
-    }
-
-    public Entity CreateEntity(Entity entity)
-    {
-      System.Diagnostics.Debug.Assert(null != entities_);
-      entities_[entity.ID] = new Entity(entity);
-
-      return new Entity(entities_[entity.ID]);
-    }
-
-    public void DeleteEntity<IDType>(IDType id)
-    {
-      entities_.Remove(id);
-    }
-
-    public void DeleteEntity(Entity entity)
-    {
-      DeleteEntity(entity.ID);
-    }
-
-    public void UpdateEntity(Entity entity)
-    {
-      if (!entities_.ContainsKey(entity.ID)) throw new ArgumentOutOfRangeException("entity",
-           string.Format("Entity {0} does not exist and can not be updated.", entity.ID));
-      entities_[entity.ID] = new Entity(entity);
-    }
-
-    public IEnumerable<Entity> GetDeletedEntities(dynamic version)
-    {
-      throw new NotImplementedException();
-    }
-
-    public IEnumerable<Entity> GetAddedEntities(dynamic version)
-    {
-      throw new NotImplementedException();
-    }
-
-    public IEnumerable<Entity> GetModifiedEntities(dynamic version)
-    {
-      throw new NotImplementedException();
-    }
-    #endregion ISSIDataSource
-
-    #region Internal Methods
-    public static SP.ListItem GetSPItem(string site, string listName, int ID)
-    {
-      SP.ListItem item = null;
-      try
-      {
-        using (var spContext = MSDN.Samples.ClaimsAuth.ClaimClientContext.GetAuthenticatedContext(site))
+        public Type EntityDotNetType
         {
-          SP.List list = spContext.Web.Lists.GetByTitle(listName);
-
-          item = list.GetItemById(ID);
-          spContext.Load(item);
-
-          // Commit
-          spContext.ExecuteQuery();
+            get { return entity_.DotNetType; }
         }
-      }
-      catch (SP.ServerException e)
-      {
-        item = null;
-        throw new ArgumentOutOfRangeException("ID", string.Format("Item {0} not found in SharePoint LIst {1}. Has it been deleted?", ID, listName));
-      }
 
-      return item;
+        public SharePointDataSource(Entity entity)
+        {
+            // Clone the entity so there are no references to the internal entity
+            entity_ = new Entity(entity);
+            records_ = new Dictionary<dynamic, Entity>();
+            deletedRecords_ = new Dictionary<dynamic, Entity>();
+        }
+
+        public void Connect()
+        {
+            clientContext_ = Context();
+            if (clientContext_ != null)
+            {
+                // Try to get the list
+                List entities = null;
+
+                try
+                {
+                    entities = clientContext_.Web.Lists.GetByTitle(listName_);
+                    clientContext_.ExecuteQuery();
+                }
+                catch (Exception x)
+                {
+                    entities = null;
+                }
+
+
+                if (entities != null)       //If list exists
+                {
+                    CamlQuery query = CamlQuery.CreateAllItemsQuery();
+                    ListItemCollection items = entities.GetItems(query);
+                    clientContext_.Load(items);
+                    clientContext_.ExecuteQuery();
+
+                    foreach (ListItem listItem in items)
+                    {
+                        foreach (EntityField field in entity_)
+                        {
+                            entity_[field.Name].Value = Convert.ChangeType(listItem[field.Name],
+                                entity_[field.Name].ValueType);
+                            UpsertRecord(entity_);
+                        }
+                    }
+                    connected_ = true;
+                }
+                else connected_ = true;     //We'll create one on disconnect
+
+
+                // load the existing deleted records
+                List deletedEntities = null;
+
+                try
+                {
+                    deletedEntities = clientContext_.Web.Lists.GetByTitle(listName_ + "_deleted");
+                    clientContext_.ExecuteQuery();
+                }
+                catch (Exception x)
+                {
+                    deletedEntities = null;
+                }
+
+                if (deletedEntities != null)       //If deleted list exists
+                {
+
+                    CamlQuery query2 = CamlQuery.CreateAllItemsQuery();
+                    ListItemCollection deletedItems = deletedEntities.GetItems(query2);
+                    clientContext_.Load(deletedItems);
+                    clientContext_.ExecuteQuery();
+
+                    foreach (ListItem listItem in deletedItems)
+                    {
+                        foreach (EntityField field in entity_)
+                        {
+                            entity_[field.Name].Value = Convert.ChangeType(listItem[field.Name],
+                                entity_[field.Name].ValueType);
+
+                            deletedRecords_[entity_.ID] = entity_;
+                        }
+                    }
+                }
+
+                clientContext_ = null;
+            }
+        }
+
+        public void Connect(string connectionString)
+        {
+            ConnectionString = connectionString;
+            Connect();
+        }
+
+        /// <summary>
+        /// Connect based on choice of type of Authentication (User, Add-In Principal)
+        /// </summary>
+        /// <returns></returns>
+        private ClientContext Context()
+        {
+            switch (AuthType)
+            {
+                case AuthenticationType.User: return UserContext();
+                case AuthenticationType.AddInPrincipal: return AddInPrincipalContext();
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// Create Context object using a SharePoint User Credentials
+        /// </summary>
+        /// <returns></returns>
+        private ClientContext UserContext()
+        {
+            ClientContext clientContext = new ClientContext(ConnectionString);
+            SecureString passWord = new SecureString();
+            foreach (char c in this.Password.ToCharArray()) passWord.AppendChar(c);
+            clientContext.Credentials = new SharePointOnlineCredentials(this.UserName, passWord);
+            return clientContext;
+        }
+
+
+        /// <summary>
+        /// Create Context object using SharePoint Add-In Principal's credentials
+        /// </summary>
+        /// <returns></returns>
+        private ClientContext AddInPrincipalContext()
+        {
+            Uri siteUri = new Uri(ConnectionString);
+            string realm = TokenHelper.GetRealmFromTargetUrl(siteUri);
+            string accessToken = TokenHelper.GetAppOnlyAccessToken(TokenHelper.SharePointPrincipal,
+                                                                  siteUri.Authority, realm).AccessToken;
+            return TokenHelper.GetClientContextWithAccessToken(siteUri.ToString(), accessToken);
+        }
+
+
+        public Entity CreateEntity(Entity entity)
+        {
+            UpsertRecord(entity);
+            return new Entity(records_[entity.ID]);
+        }
+
+        public void DeleteEntity(Entity entity)
+        {
+            DeleteEntity(entity.ID);
+        }
+
+        public void DeleteEntity<IDType>(IDType id)
+        {
+            deletedRecords_[id] = records_[id];
+            records_.Remove(id);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void Disconnect()
+        {
+            clientContext_ = Context();
+
+            //Write entities
+            WriteList(listName_, records_);
+            records_.Clear();
+
+            //Write deleted entities
+            if (deletedRecords_.Count > 0) WriteList(listName_ + "_deleted", deletedRecords_);
+            deleteTheDeleted();
+            deletedRecords_.Clear();
+
+            connected_ = false;
+            clientContext_ = null;
+        }
+
+
+        /// <summary>
+        /// Writes list currently in held in memory to list on SharePoint site.
+        /// </summary>
+        /// <param name="listName"></param>
+        /// <param name="theRecordSet"></param>
+        private void WriteList(string listName, Dictionary<dynamic, Entity> theRecordSet)
+        {
+
+            SP.List list = null;
+
+            //Try to get the list
+            try
+            {
+                list = clientContext_.Web.Lists.GetByTitle(listName);
+                clientContext_.ExecuteQuery();
+            }
+            catch (Exception x)
+            {
+                list = null;
+            }
+
+            if (list == null)   //if list does not exist...
+            {
+                list = CreateList(listName);
+            }
+
+            foreach (Entity entity_ in theRecordSet.Values)
+            {
+                SP.ListItem item = null;
+
+                //Check if list item exists
+                String query = @"<View><Query><Where><Eq><FieldRef Name='" + entity_.IDFieldName + "'/><Value Type = 'Text'>" + entity_.ID + "</Value></Eq></Where></Query></View>";
+                CamlQuery cQuery = new CamlQuery();
+                cQuery.ViewXml = query;
+                ListItemCollection listItemsCollection = list.GetItems(cQuery);
+                clientContext_.Load(listItemsCollection);
+                clientContext_.ExecuteQuery();
+
+                if (listItemsCollection.Count > 0) item = listItemsCollection[0];
+
+                if (item == null)   //if item does not exist create one..
+                {
+                    ListItemCreationInformation itemCreateInfo = new ListItemCreationInformation();
+                    ListItem newItem = list.AddItem(itemCreateInfo);
+
+                    foreach (var field in entity_)
+                    {
+                        newItem[field.Name] = field.Value;
+                    }
+
+                    newItem.Update();
+                    clientContext_.ExecuteQuery();
+                }
+                else    //update
+                {
+
+                    foreach (var field in entity_)
+                    {
+                        item[field.Name] = field.Value;
+                    }
+
+                    item.Update();
+                    clientContext_.ExecuteQuery();
+                }
+            }
+        }
+
+        public SP.List CreateList(String listTitle)
+        {
+            //Create the list
+            SP.List list;
+            ListCreationInformation creationInfo = new ListCreationInformation();
+            creationInfo.Title = listTitle;
+            creationInfo.TemplateType = (int)ListTemplateType.GenericList;
+
+            list = clientContext_.Web.Lists.Add(creationInfo);
+            list.Update();
+
+            //Create the fields
+            foreach (var field in entity_)
+            {   //Sharepoint already has a sort of Name Field (Title), Created Timestamp (Created), and Modified Timestamp (Modified)
+                if (field.Name != entity_.ModifiedVersionFieldName && field.Name != entity_.CreatedVersionFieldName && field.Name != entity_.NameFieldName)
+                    list.Fields.AddFieldAsXml("<Field DisplayName='" + field.Name + "' Type='Text' />", true, AddFieldOptions.DefaultValue);
+            }
+
+            clientContext_.ExecuteQuery();
+            return list;
+        }
+
+        public void deleteTheDeleted()
+        {
+            SP.List list = null;
+
+            //Try to get the list
+            try
+            {
+                list = clientContext_.Web.Lists.GetByTitle(listName);
+                clientContext_.ExecuteQuery();
+            }
+            catch (Exception x)
+            {
+                list = null;
+            }
+
+            if (list != null)   //if list exists..
+
+                foreach (Entity entity_ in deletedRecords_.Values)
+                {
+                    SP.ListItem item = null;
+
+                    //Check if list item exists
+                    String query = @"<View><Query><Where><Eq><FieldRef Name='" + entity_.IDFieldName + "'/><Value Type = 'Text'>" + entity_.ID + "</Value></Eq></Where></Query></View>";
+                    CamlQuery cQuery = new CamlQuery();
+                    cQuery.ViewXml = query;
+                    ListItemCollection listItemsCollection = list.GetItems(cQuery);
+                    clientContext_.Load(listItemsCollection);
+                    clientContext_.ExecuteQuery();
+
+                    if (listItemsCollection.Count > 0) item = listItemsCollection[0];
+
+                    if (item != null)   //if item exists delete..
+                    {
+                        ListItem listItem = list.GetItemById(item.Id);
+                        listItem.DeleteObject();
+                        clientContext_.ExecuteQuery();
+                    }
+                }
+        }
+
+        public void deleteList()
+        {
+            clientContext_ = Context();
+
+            try
+            {
+                List list = clientContext_.Web.Lists.GetByTitle(listName_);
+                list.DeleteObject();
+                clientContext_.ExecuteQuery();
+            }
+            catch (Exception e) { };
+        }
+
+        public void deleteList_deleted()
+        {
+            clientContext_ = Context();
+
+            try
+            {
+                List deletedlist = clientContext_.Web.Lists.GetByTitle(listName_ + "_deleted");
+                deletedlist.DeleteObject();
+                clientContext_.ExecuteQuery();
+            }
+            catch (Exception x) { }
+        }
+
+        public IEnumerable<Entity> GetAddedEntities(dynamic version)
+        {
+            return records_.Values.Where(e => e.CreatedVersion >= version).ToList();
+        }
+
+        public IEnumerable<Entity> GetDeletedEntities(dynamic version)
+        {
+            return deletedRecords_.Values.Where(e => e.ModifiedVersion >= version).ToList();
+        }
+
+        public Entity GetEntity<IDType>(IDType id)
+        {
+            // Clone the entity so there are no references to the internal entity
+            System.Diagnostics.Debug.Assert(null != records_);
+            return new Entity(records_[id]);
+        }
+
+        public IEnumerator<Entity> GetEnumerator()
+        {
+            return records_.Values.GetEnumerator();
+        }
+
+        public IEnumerable<Entity> GetModifiedEntities(dynamic version)
+        {
+            return records_.Values.Where(e => e.ModifiedVersion >= version).ToList();
+        }
+
+        public bool IsConnected()
+        {
+            return connected_;
+        }
+
+        public void UpdateEntity(Entity entity)
+        {
+            // Don't insert - make sure entity exists
+            if (!records_.ContainsKey(entity.ID)) throw new ArgumentOutOfRangeException("entity",
+                 string.Format("Entity {0} does not exist and can not be updated.", entity.ID));
+
+            UpsertRecord(entity);
+        }
+
+        private void UpsertRecord(Entity entity)
+        {
+            System.Diagnostics.Debug.Assert(null != records_);
+            records_[entity.ID] = new Entity(entity);
+        }
+
+
+
+        #region Properties
+        public Entity this[dynamic id]
+        {
+            get
+            {
+                return GetEntity(id);
+            }
+            set
+            {
+                if (value.ID != id) throw new ArgumentException(
+                     string.Format("Invalid ID. Entity with ID {0} can't be assigned at key {1}", value.ID, id));
+                UpsertRecord(value);
+            }
+        }
+        #endregion Properties
     }
-
-
-    private SP.CamlQuery CreateListQuery()
-    {
-      SP.CamlQuery query = new SP.CamlQuery();
-      StringBuilder sb = new StringBuilder("<View>");
-      sb.Append("<ViewFields>");
-      foreach (var field in entity_)
-      {
-        sb.Append(string.Format("<FieldRef Name='{0}'/>", field.Name));
-      }
-      sb.Append("</ViewFields>");
-      sb.Append("</View>");
-      query.ViewXml = sb.ToString();
-      return query;
-    }
-    #endregion  Internal Methods
-
-    //todo: Add Helper Methods
-
-    //todo: Add Instance Methods
-  }
 }

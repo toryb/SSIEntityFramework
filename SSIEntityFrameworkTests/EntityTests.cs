@@ -54,7 +54,7 @@ namespace SSIEntityFramework.Tests
             return newField;
         }
     }
-    
+
 
     public class Customer
     {
@@ -62,21 +62,24 @@ namespace SSIEntityFramework.Tests
         public int ID { get; set; }
         public DateTime CreatedTimeStamp { get; set; }
         public DateTime ModifiedTimeStamp { get; set; }
+
+
+
     }
 
 
     [TestClass()]
     public class EntityTests
     {
-        private static string entityTypeName_ = "TestEntity";
-        private static string nameFieldName_ = "Name";
-        private static string nameFieldValue_ = "Acme Company";
-        private static string IDFieldName_ = "ID";
-        private static int IDFieldValue_ = 1;
-        private static string createdVersionFieldName_ = "CreatedTimeStamp";
-        private static DateTime createdVersionFieldValue_ = DateTime.Now;
-        private static string modifiedVersionFieldName_ = "ModifiedTimeStamp";
-        private static DateTime modifiedVersionFieldValue_ = DateTime.Now;
+        public static string entityTypeName_ = "TestEntity";
+        public static string nameFieldName_ = "Name";
+        public static string nameFieldValue_ = "Acme Company";
+        public static string IDFieldName_ = "ID";
+        public static int IDFieldValue_ = 1;
+        public static string createdVersionFieldName_ = "CreatedTimeStamp";
+        public static DateTime createdVersionFieldValue_ = DateTime.Now;
+        public static string modifiedVersionFieldName_ = "ModifiedTimeStamp";
+        public static DateTime modifiedVersionFieldValue_ = DateTime.Now;
 
 
         public static Entity CreateTestEntity()
@@ -303,6 +306,44 @@ namespace SSIEntityFramework.Tests
             int e2Hash = e2.GetHashCode();
 
             Assert.AreEqual(e1Hash, e2Hash);
+        }
+    }
+
+    [TestClass()]
+    public class EqualEntitiesTests
+    {
+        [TestMethod()]
+        [ExpectedException(typeof(ArgumentException))]
+        public void EqualsTest()
+        {
+            //Create two unequal entities
+            Entity e1 = EntityTests.CreateTestEntity();
+            Entity e2 = e1.Clone() as Entity;
+
+            e1.ID = 1;
+            e1.Name = "Halo Systems";
+            e1.CreatedVersion = DateTime.Parse(DateTime.Now.ToString());
+            e1.ModifiedVersion = DateTime.Parse(DateTime.Now.ToString());
+
+            e1.ID = 2;
+            e2.Name = "App Factory";
+            e2.CreatedVersion = DateTime.Parse("1/1/2020 1:00:00 AM");
+            e2.CreatedVersion = DateTime.Parse("1/1/2020 1:00:00 AM");
+
+            //Create a third entity exactly the same as first entity
+            Entity e3 = e1.Clone() as Entity;
+
+            //Create a container with EqualEntities comparer and assert successful adding of three entities
+            EqualEntities eq = new EqualEntities();
+            Dictionary<Entity, int> Container = new Dictionary<Entity, int>(eq);
+
+            //Adding e1 and e2 must be successful
+            Container.Add(e1, 1);
+            Container.Add(e2, 2);
+
+
+            //Adding e3 must fail because of the presence of e1
+            Container.Add(e3, 3);
         }
     }
 }

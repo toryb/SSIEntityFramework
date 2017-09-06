@@ -550,7 +550,7 @@ namespace SSIEntityFramework.Tests
             Assert.AreEqual(entity["ModifiedTimeStamp"].Value.ToString(), testEntity["ModifiedTimeStamp"].Value.ToString());
             Assert.AreEqual(entity, e.ElementAt(0));
 
-
+            DateTime secondTimeAdded = entity.CreatedVersion;
 
             //Try to add a second entity
             entity.ID = 3;
@@ -559,7 +559,7 @@ namespace SSIEntityFramework.Tests
             entity.CreatedVersion = entity.ModifiedVersion = DateTime.Parse(DateTime.Now.ToString());
             csvDS.CreateEntity(entity);
 
-            e = csvDS.GetAddedEntities(entity.CreatedVersion);
+            e = csvDS.GetAddedEntities(secondTimeAdded);
 
             Assert.AreEqual(2, e.Count());
 

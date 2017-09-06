@@ -26,10 +26,10 @@ namespace SSIEntityFramework
     public class Entity : ICloneable, IComparable<Entity>, IEquatable<Entity>
     {
         #region Class Variables
-		/// <summary>
-		/// The internal dictionary used to store the fields in this Entity
-		/// </summary>
-        private Dictionary<string, EntityField> fieldDict_ = new Dictionary<string,EntityField>();
+        /// <summary>
+        /// The internal dictionary used to store the fields in this Entity
+        /// </summary>
+        private Dictionary<string, EntityField> fieldDict_ = new Dictionary<string, EntityField>();
         #endregion //Class Variables
 
         #region Ctors and Dtors
@@ -79,15 +79,15 @@ namespace SSIEntityFramework
                 camparisonEntity.CreatedVersionFieldName == sourceEntity.CreatedVersionFieldName &&
                 camparisonEntity.ModifiedVersionFieldName == sourceEntity.ModifiedVersionFieldName &&
                 camparisonEntity.VersionType == sourceEntity.VersionType;
-            if(ret)
+            if (ret)
             {
                 ret = camparisonEntity.FieldDictionary.Count == sourceEntity.FieldDictionary.Count;
-                if(ret)
+                if (ret)
                 {
-                    foreach(EntityField field in sourceEntity.FieldDictionary.Values)
+                    foreach (EntityField field in sourceEntity.FieldDictionary.Values)
                     {
                         // if the field does not exist or the values aren't the same return false
-                        if (!camparisonEntity.FieldDictionary.Keys.Contains(field.Name) || 
+                        if (!camparisonEntity.FieldDictionary.Keys.Contains(field.Name) ||
                             camparisonEntity[field.Name].Value != field.Value) return false;
                     }
                 }
@@ -113,7 +113,7 @@ namespace SSIEntityFramework
                                    entry => entry.Value.Clone() as EntityField);
 
         }
-        
+
         /// <summary>
         /// Copies all the properties and field values into this Entity
         /// </summary>
@@ -278,7 +278,7 @@ namespace SSIEntityFramework
             }
         }
 
-        public Func<Entity,bool> DeletedPredicate
+        public Func<Entity, bool> DeletedPredicate
         {
             get;
             set;
@@ -294,7 +294,7 @@ namespace SSIEntityFramework
         #endregion Static Helper Methods
 
         #region Instance Methods
-        
+
         public Dictionary<string, EntityField>.ValueCollection.Enumerator GetEnumerator()
         {
             return FieldDictionary.Values.GetEnumerator();
@@ -421,12 +421,12 @@ namespace SSIEntityFramework
         /// <returns>an instance of the .NET type for this entity</returns>
         public dynamic ReadEntity()
         {
-            foreach(EntityField ef in fieldDict_.Values)
+            foreach (EntityField ef in fieldDict_.Values)
             {
                 var v = ef.Value;
             }
 
-            var entity = DotNetType.GetConstructor(new Type[]{}).Invoke(new object[]{});
+            var entity = DotNetType.GetConstructor(new Type[] { }).Invoke(new object[] { });
 
             PropertyInfo[] pi = DotNetType.GetProperties();
             foreach (PropertyInfo p in pi)
@@ -593,7 +593,7 @@ namespace SSIEntityFramework
         /// <remarks>This property could call the ReadField() or WriteField() methods or 
         /// utilize some form of caching.
         /// </remarks>
-        public dynamic Value 
+        public dynamic Value
         {
             get
             {
@@ -612,8 +612,8 @@ namespace SSIEntityFramework
         /// <summary>
         /// Get the type used to store value
         /// </summary>
-        public System.Type ValueType 
-        { 
+        public System.Type ValueType
+        {
             get { return fieldImpl_.ValueType; }
         }
         #endregion Properties
@@ -683,4 +683,44 @@ namespace SSIEntityFramework
         System.Type ValueType { get; }
 
     }
+
+
+    public class EqualEntities : EqualityComparer<Entity>
+    {
+        public override bool Equals(Entity e1, Entity e2)
+        {
+            if (e1 == null && e2 == null)
+                return true;
+            else if (e1 == null || e2 == null)
+                return false;
+
+            foreach (EntityField field in e1.FieldDictionary.Values)
+            {
+                try
+                {
+                    if (field.Value != e2.FieldDictionary[field.Name].Value) return false;
+                }
+                catch (Exception ex) { }
+            }
+
+            foreach (EntityField field in e2.FieldDictionary.Values)
+            {
+                try
+                {
+                    if (field.Value != e1.FieldDictionary[field.Name].Value) return false;
+                }
+                catch (Exception ex) { }
+            }
+
+            return true;
+        }
+
+    public override int GetHashCode(Entity e)
+    {
+        return e.GetHashCode();
+    }
 }
+
+}
+
+
