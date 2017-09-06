@@ -162,7 +162,7 @@ namespace SSIEntityFramework
                 var itemId = entity_.ID;
                 using (var client = new SPHttpClient(new Uri(ConnectionString), UserName, Password))
                 {
-                    var endpointUrl = string.Format("{0}_api/web/lists/getbytitle('{1}')/items?$filter=Sync_ID eq '{2}'", new Uri(ConnectionString), listTitle, itemId);
+                    var endpointUrl = string.Format("{0}_api/web/lists/getbytitle('{1}')/items?$filter=SyncID eq '{2}'", new Uri(ConnectionString), listTitle, itemId);
                     item = client.ExecuteJson(endpointUrl);
                 }
 
@@ -273,7 +273,7 @@ namespace SSIEntityFramework
                 var itemId = entity_.ID;
                 using (var client = new SPHttpClient(new Uri(ConnectionString), UserName, Password))
                 {
-                    var endpointUrl = string.Format("{0}_api/web/lists/getbytitle('{1}')/items?$filter=Sync_ID eq '{2}'", new Uri(ConnectionString), listName, itemId);
+                    var endpointUrl = string.Format("{0}_api/web/lists/getbytitle('{1}')/items?$filter=SyncID eq '{2}'", new Uri(ConnectionString), listName, itemId);
                     item = client.ExecuteJson(endpointUrl);
                 }
 
@@ -306,6 +306,26 @@ namespace SSIEntityFramework
         public IEnumerable<Entity> GetDeletedEntities(dynamic version)
         {
             return deletedRecords_.Values.Where(e => e.ModifiedVersion >= version).ToList();
+        }
+
+        public IEnumerable<Entity> GetDeletedEntities()
+        {
+            return deletedRecords_.Values.ToList();
+        }
+
+        public IEnumerable<Entity> GetAddedEntities()
+        {
+            return records_.Values.ToList();
+        }
+
+        public IEnumerable<Entity> GetModifiedEntities()
+        {
+            return records_.Values.ToList();
+        }
+
+        public IEnumerable<Entity> GetEntities()
+        {
+            return records_.Values.ToList();
         }
 
         public Entity GetEntity<IDType>(IDType id)
@@ -345,6 +365,74 @@ namespace SSIEntityFramework
             records_[entity.ID] = new Entity(entity);
         }
 
+
+
+        //Sync Methods
+        #region Sync_Functions
+        public Entity GetSyncEntity(dynamic id)
+        {
+            // Clone the entity so there are no references to the internal entity
+            Debug.Assert(null != records_);
+            var entity = records_.FirstOrDefault(x => x.Value.SyncID == id).Value;
+            if (entity != null) { return new Entity(entity); }
+            else return null;
+
+        }
+
+        public Entity CreateSyncEntity(Entity entity)
+        {
+            Debug.Assert(null != records_);
+            //Get id of last item in list
+            int lastId = 0;
+            try
+            {
+                lastId = records_.ToList()[records_.Count - 1].Value.ID;
+            }
+            catch (Exception x) { }
+
+            entity.ID = lastId + 1;
+
+            records_[entity.ID] = new Entity(entity);
+
+            return new Entity(records_[entity.ID]);
+        }
+
+        public void DeleteSyncEntity(dynamic id)
+        {
+
+            Entity entity = records_.FirstOrDefault(x => x.Value.SyncID == id).Value;
+
+            if (entity != null)
+            {
+                deletedRecords_[entity.ID] = records_[entity.ID];
+                records_.Remove(entity.ID);
+            }
+        }
+
+        public void DeleteSyncEntity(Entity entity)
+        {
+            DeleteSyncEntity(entity.SyncID);
+        }
+
+        public void UpdateSyncEntity(Entity entity)
+        {
+            Entity entityhere = records_.FirstOrDefault(x => x.Value.SyncID == entity.SyncID).Value;
+
+            if (entityhere == null) throw new ArgumentOutOfRangeException("entity",
+                 string.Format("Entity {0} does not exist and can not be updated.", entity.SyncID));
+
+
+            //update everything but id
+            foreach (var field in entity.FieldDictionary)
+            {
+                if (field.Key != entity.IDFieldName)
+                {
+                    entityhere.WriteField(field.Key, field.Value.Value);
+                }
+            }
+        }
+
+        #endregion Sync_Functions
 
 
         #region Properties

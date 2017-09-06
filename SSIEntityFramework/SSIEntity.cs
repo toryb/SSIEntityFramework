@@ -104,6 +104,8 @@ namespace SSIEntityFramework
             destinationEntity.NameFieldName = sourceEntity.NameFieldName;
             destinationEntity.IDFieldName = sourceEntity.IDFieldName;
             destinationEntity.IDType = sourceEntity.IDType;
+            destinationEntity.SyncIDFieldName = sourceEntity.SyncIDFieldName;
+            destinationEntity.SyncIDType = sourceEntity.SyncIDType;
             destinationEntity.CreatedVersionFieldName = sourceEntity.CreatedVersionFieldName;
             destinationEntity.ModifiedVersionFieldName = sourceEntity.ModifiedVersionFieldName;
             destinationEntity.VersionType = sourceEntity.VersionType;
@@ -223,6 +225,17 @@ namespace SSIEntityFramework
         public Type IDType { get; set; }
 
         /// <summary>
+        /// The field name that contains the unique SyncID for the Entity
+        /// </summary>
+        public string SyncIDFieldName { get; set; }
+
+        /// <summary>
+        /// The Type of the value used for the unique SyncID for the Entity
+        /// </summary>
+        public Type SyncIDType { get; set; }
+
+
+        /// <summary>
         /// Gets and Sets the ID value for the Entity
         /// </summary>
         public dynamic ID
@@ -239,6 +252,23 @@ namespace SSIEntityFramework
             {
                 if (null == fieldDict_) throw new System.InvalidOperationException("FieldDictionary has not been initialized");
                 fieldDict_[IDFieldName].Value = value;
+            }
+        }
+
+        public dynamic SyncID
+        {
+            // Get the value from the NameField field
+            get
+            {
+                // Contract.Requires(null != FieldMap);
+                if (null == fieldDict_) throw new System.InvalidOperationException("FieldDictionary has not been initialized");
+                return fieldDict_[SyncIDFieldName].Value;
+            }
+            // Set the value on the NameField
+            set
+            {
+                if (null == fieldDict_) throw new System.InvalidOperationException("FieldDictionary has not been initialized");
+                fieldDict_[SyncIDFieldName].Value = value;
             }
         }
 
@@ -344,7 +374,7 @@ namespace SSIEntityFramework
             EntityField field = FieldDictionary[fieldName];
 
             // Make sure template parameter type is correct
-            Type typedValue = typeof(T);
+            Type typedValue = fieldValue.GetType();
             if (typedValue != field.ValueType) throw new InvalidCastException(
                  string.Format("Entity ValueType {0} does not match requested type", field.ValueType.ToString()));
 

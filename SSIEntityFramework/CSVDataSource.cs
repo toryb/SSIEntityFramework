@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace SSIEntityFramework
 {
@@ -193,7 +193,7 @@ namespace SSIEntityFramework
             // Write deleted records if any records have been deleted
             if (deletedRecords_.Count > 0)
             {
-                using (System.IO.StreamWriter deltedStream = new System.IO.StreamWriter(ConnectionString + ".deleted"))
+                using (StreamWriter deltedStream = new StreamWriter(ConnectionString + ".deleted"))
                 {
                     // deltedStream.BaseStream.Position = deltedStream.BaseStream.Length;
 
@@ -203,6 +203,7 @@ namespace SSIEntityFramework
                     }
                 }
             }
+            
             connected_ = false;
             deletedRecords_.Clear();
         }
@@ -227,8 +228,11 @@ namespace SSIEntityFramework
 
         public void DeleteEntity<IDType>(IDType id)
         {
-            deletedRecords_[id] = records_[id];
-            records_.Remove(id);
+            if (records_.ContainsKey(id))
+            {
+                deletedRecords_[id] = records_[id];
+                records_.Remove(id);
+            }
         }
 
         public void DeleteEntity(Entity entity)
@@ -260,6 +264,94 @@ namespace SSIEntityFramework
             return records_.Values.Where(e => e.ModifiedVersion >= version).ToList();
         }
 
+
+        public IEnumerable<Entity> GetDeletedEntities()
+        {
+            return deletedRecords_.Values.ToList();
+        }
+
+        public IEnumerable<Entity> GetAddedEntities()
+        {
+            return records_.Values.ToList();
+        }
+
+        public IEnumerable<Entity> GetModifiedEntities()
+        {
+            return records_.Values.ToList();
+        }
+
+        public IEnumerable<Entity> GetEntities()
+        {
+            return records_.Values.ToList();
+        }
+
+        //Sync Methods
+        #region Sync_Functions
+        public Entity GetSyncEntity(dynamic id)
+        {
+            // Clone the entity so there are no references to the internal entity
+            Debug.Assert(null != records_);
+            var entity = records_.FirstOrDefault(x => x.Value.SyncID == id).Value;
+            if (entity != null) { return new Entity(entity); }
+            else return null;
+
+        }
+
+        public Entity CreateSyncEntity(Entity entity)
+        {
+            Debug.Assert(null != records_);
+            //Get id of last item in list
+            int lastId = 0;
+            try
+            {
+                lastId = records_.ToList()[records_.Count - 1].Value.ID;
+            }
+            catch (Exception x) { }
+
+            entity.ID = lastId + 1;
+
+            records_[entity.ID] = new Entity(entity);
+
+            return new Entity(records_[entity.ID]);
+        }
+
+        public void DeleteSyncEntity(dynamic id)
+        {
+    
+            Entity entity = records_.FirstOrDefault(x => x.Value.SyncID == id).Value;
+
+            if (entity != null)
+            {
+                deletedRecords_[entity.ID] = records_[entity.ID];
+                records_.Remove(entity.ID);
+            }
+        }
+
+        public void DeleteSyncEntity(Entity entity)
+        {
+            DeleteSyncEntity(entity.SyncID);
+        }
+
+        public void UpdateSyncEntity(Entity entity)
+        {
+            Entity entityhere = records_.FirstOrDefault(x => x.Value.SyncID == entity.SyncID).Value;
+
+            if (entityhere == null) throw new ArgumentOutOfRangeException("entity",
+                 string.Format("Entity {0} does not exist and can not be updated.", entity.SyncID));
+
+
+            //update everything but id
+            foreach (var field in entity.FieldDictionary)
+            {
+                if (field.Key != entity.IDFieldName)
+                {
+                    entityhere.WriteField(field.Key, field.Value.Value);
+                }
+            }
+        }
+
+        #endregion Sync_Functions
+
         #endregion ISSIDataSource
 
         #region Static Helper Methods
@@ -285,6 +377,7 @@ namespace SSIEntityFramework
 
                 csvReader.Read();
 
+                csvReader.ReadHeader();
                 foreach (string fieldName in csvReader.FieldHeaders)
                 {
                     EntityField field = new EntityField(new CSVField<string>(fieldName));
@@ -299,6 +392,7 @@ namespace SSIEntityFramework
         private bool Read()
         {
             System.Diagnostics.Debug.Assert(null != csvReader_);
+
             try
             {
                 if (csvReader_.Read())
@@ -392,17 +486,25 @@ namespace SSIEntityFramework
 
         private void UpsertRecord(Entity entity)
         {
-            System.Diagnostics.Debug.Assert(null != records_);
+            Debug.Assert(null != records_);
             records_[entity.ID] = new Entity(entity);
         }
 
         private void ReadAllRecords()
         {
+            if (csvReader_.Read())
+            {
+                csvReader_.ReadHeader();
+            }
             while (Read()) { };
         }
 
         private void ReadAllDeletedRecords(CsvHelper.CsvReader reader)
         {
+            if (csvReader_.Read())
+            {
+                csvReader_.ReadHeader();
+            }
             while (ReadDeleted(reader)) { };
         }
         #endregion Internal Methods
@@ -416,7 +518,7 @@ namespace SSIEntityFramework
             }
             set
             {
-                System.Diagnostics.Debug.Assert(value.ID == id);
+                Debug.Assert(value.ID == id);
                 if (value.ID != id) throw new ArgumentException(
                      string.Format("Invalid ID. Entity with ID {0} can't be assigned at key {1}", value.ID, id));
                 UpsertRecord(value);

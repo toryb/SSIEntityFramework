@@ -76,6 +76,8 @@ namespace SSIEntityFramework.Tests
         public static string nameFieldValue_ = "Acme Company";
         public static string IDFieldName_ = "ID";
         public static int IDFieldValue_ = 1;
+        public static string SyncIDFieldName_ = "SyncID";
+        public static int SyncIDFieldValue_ = 1;
         public static string createdVersionFieldName_ = "CreatedTimeStamp";
         public static DateTime createdVersionFieldValue_ = DateTime.Now;
         public static string modifiedVersionFieldName_ = "ModifiedTimeStamp";
@@ -91,6 +93,11 @@ namespace SSIEntityFramework.Tests
             e.AddField(IDFieldName_, new EntityField(new TestField<int>()) { Name = IDFieldName_, Value = IDFieldValue_ });
             e.IDFieldName = IDFieldName_;
             e.IDType = IDFieldValue_.GetType();
+
+            e.AddField(SyncIDFieldName_, new EntityField(new TestField<int>()) { Name = SyncIDFieldName_, Value = SyncIDFieldValue_ });
+            e.SyncIDFieldName = SyncIDFieldName_; ;
+            e.SyncID = SyncIDFieldValue_;
+            e.SyncIDType = SyncIDFieldValue_.GetType();
 
             // Set the name of the field to "Name"
             e.AddField(nameFieldName_, new EntityField(new TestField<string>())

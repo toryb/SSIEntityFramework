@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -89,11 +90,37 @@ namespace SSIEntityFramework
         /// </summary>
         /// <param name="version">The version indicator for filtering the deleted items</param>
         /// <returns></returns>
-        System.Collections.Generic.IEnumerable<Entity> GetDeletedEntities(dynamic version);
+        IEnumerable<Entity> GetDeletedEntities(dynamic version);
 
-        System.Collections.Generic.IEnumerable<Entity> GetAddedEntities(dynamic version);
+        IEnumerable<Entity> GetAddedEntities(dynamic version);
 
-        System.Collections.Generic.IEnumerable<Entity> GetModifiedEntities(dynamic version);
+        IEnumerable<Entity> GetModifiedEntities(dynamic version);
+
+        IEnumerable<Entity> GetDeletedEntities();
+
+        IEnumerable<Entity> GetAddedEntities();
+
+        IEnumerable<Entity> GetModifiedEntities();
+
+        IEnumerable<Entity> GetEntities();
+
+
+
+
+        //////////////////////////////////
+        Entity GetSyncEntity(dynamic id);
+
+
+        Entity CreateSyncEntity(Entity entity);
+
+
+        void DeleteSyncEntity(dynamic id);
+
+        void DeleteSyncEntity(Entity entity);
+
+        void UpdateSyncEntity(Entity entity);
+        
+
     }
 
     public class FieldMap

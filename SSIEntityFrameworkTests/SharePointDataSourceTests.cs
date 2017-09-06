@@ -13,7 +13,7 @@ namespace SSIEntityFramework.Tests
 
         private Entity NewEntity()
         {
-            EntityTests.IDFieldName_ = "Sync_ID";
+            EntityTests.IDFieldName_ = "ID";
             EntityTests.nameFieldName_ = "Title";
             EntityTests.createdVersionFieldName_ = "Created";
             EntityTests.modifiedVersionFieldName_ = "Modified";
