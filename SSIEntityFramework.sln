@@ -26,15 +26,18 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 3
+		SccNumberOfProjects = 2
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://toryb.visualstudio.com/defaultcollection
-		SccLocalPath0 = .
-		SccProjectUniqueName1 = SSIEntityFramework\\SSIEntityFramework.csproj
-		SccProjectName1 = SSIEntityFramework
-		SccLocalPath1 = SSIEntityFramework
-		SccProjectUniqueName2 = SSIEntityFrameworkTests\\SSIEntityFrameworkTests.csproj
-		SccProjectName2 = SSIEntityFrameworkTests
-		SccLocalPath2 = SSIEntityFrameworkTests
+		SccProjectUniqueName0 = SSIEntityFramework\\SSIEntityFramework.csproj
+		SccProjectName0 = SSIEntityFramework
+		SccAuxPath0 = https://toryb.visualstudio.com/defaultcollection
+		SccLocalPath0 = SSIEntityFramework
+		SccProvider0 = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccProjectUniqueName1 = SSIEntityFrameworkTests\\SSIEntityFrameworkTests.csproj
+		SccProjectName1 = SSIEntityFrameworkTests
+		SccAuxPath1 = https://toryb.visualstudio.com/defaultcollection
+		SccLocalPath1 = SSIEntityFrameworkTests
+		SccProvider1 = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 	EndGlobalSection
 EndGlobal

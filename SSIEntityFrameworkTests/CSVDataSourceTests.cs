@@ -517,13 +517,115 @@ namespace SSIEntityFramework.Tests
         [TestMethod()]
         public void GetAddedEntitiesTest()
         {
-            Assert.Fail();
+            //Add a new entity
+            Entity entity = EntityTests.CreateTestEntity();
+            CSVDataSource csvDS = new CSVDataSource(entity);
+            csvDS.Connect(@"TestDataSource.txt");
+            Assert.IsTrue(csvDS.IsConnected());
+            entity.ID = 2;
+            entity.Name = "Halo Systems";
+            entity.CreatedVersion = entity.ModifiedVersion = DateTime.Parse(DateTime.Now.ToString());
+            csvDS.CreateEntity(entity);
+
+
+            //Get added entities
+            IEnumerable<Entity> e = csvDS.GetAddedEntities(entity.CreatedVersion);
+            Assert.AreEqual(1, e.Count());
+
+
+            //Test to see if added entity lives after disconnect
+            csvDS.Disconnect();
+            Assert.IsFalse(csvDS.IsConnected());
+
+            csvDS.Connect();
+            Assert.IsTrue(csvDS.IsConnected());
+
+            //Assert it's the same entity
+            e = csvDS.GetAddedEntities(entity.CreatedVersion);
+            Assert.AreEqual(1, e.Count());
+            Entity testEntity = e.ElementAt(0);
+            Assert.AreEqual(entity.ID, testEntity.ID);
+            Assert.AreEqual(entity.Name, testEntity.Name);
+            Assert.AreEqual(entity["CreatedTimeStamp"].Value.ToString(), testEntity["CreatedTimeStamp"].Value.ToString());
+            Assert.AreEqual(entity["ModifiedTimeStamp"].Value.ToString(), testEntity["ModifiedTimeStamp"].Value.ToString());
+            Assert.AreEqual(entity, e.ElementAt(0));
+
+
+
+            //Try to add a second entity
+            entity.ID = 3;
+            entity.Name = "App Factory";
+
+            entity.CreatedVersion = entity.ModifiedVersion = DateTime.Parse(DateTime.Now.ToString());
+            csvDS.CreateEntity(entity);
+
+            e = csvDS.GetAddedEntities(entity.CreatedVersion);
+
+            Assert.AreEqual(2, e.Count());
+
+            //clean up...
+            csvDS.DeleteEntity(2);
+            csvDS.DeleteEntity(3);
+
+
+            // disconnect
+            csvDS.Disconnect();
+            Assert.IsFalse(csvDS.IsConnected());
         }
 
         [TestMethod()]
         public void GetModifiedEntitiesTest()
         {
-            Assert.Fail();
+            //Add a new entity
+            Entity entity = EntityTests.CreateTestEntity();
+            CSVDataSource csvDS = new CSVDataSource(entity);
+            csvDS.Connect(@"TestDataSource.txt");
+            Assert.IsTrue(csvDS.IsConnected());
+            entity.ID = 2;
+            entity.Name = "Halo Systems";
+            entity.CreatedVersion = entity.ModifiedVersion = DateTime.Parse(DateTime.Now.ToString());
+            csvDS.CreateEntity(entity);
+
+            Entity added = csvDS.GetEntity<int>(2);
+
+
+            //Modify the entity
+            added.Name = "App Factory";
+            added.ModifiedVersion = DateTime.Parse("1/1/2020 1:00:00 AM");
+
+            csvDS.UpdateEntity(added);
+
+            //Get modified entities
+            IEnumerable<Entity> e = csvDS.GetModifiedEntities(DateTime.Parse("1/1/2020 1:00:00 AM"));
+            Assert.AreEqual(1, e.Count());
+
+
+            //Test to see if modified entity lives after disconnect
+            Assert.IsTrue(csvDS.IsConnected());
+            csvDS.Disconnect();
+            Assert.IsFalse(csvDS.IsConnected());
+
+            csvDS.Connect();
+
+            e = csvDS.GetModifiedEntities(DateTime.Parse("1/1/2020 1:00:00 AM"));
+
+            //Assert it's same entity
+            Assert.AreEqual(1, e.Count());
+            Entity testEntity = e.ElementAt(0);
+            Assert.AreEqual(added.ID, testEntity.ID);
+            Assert.AreEqual(added.Name, "App Factory");
+            Assert.AreEqual(added["CreatedTimeStamp"].Value.ToString(), testEntity["CreatedTimeStamp"].Value.ToString());
+            Assert.AreEqual(added["ModifiedTimeStamp"].Value.ToString(), testEntity["ModifiedTimeStamp"].Value.ToString());
+
+
+            //clean up...
+            csvDS.DeleteEntity(2);
+
+
+            // disconnect
+            csvDS.Disconnect();
+            Assert.IsFalse(csvDS.IsConnected());
+
         }
     }
 }

@@ -296,7 +296,13 @@ namespace SSIEntityFramework.Tests
         [TestMethod()]
         public void GetHashCodeTest()
         {
-            Assert.Fail();
+            Entity e1 = EntityTests.CreateTestEntity();
+            Entity e2 = (Entity)e1.Clone();
+
+            int e1Hash = e1.GetHashCode();
+            int e2Hash = e2.GetHashCode();
+
+            Assert.AreEqual(e1Hash, e2Hash);
         }
     }
 }
