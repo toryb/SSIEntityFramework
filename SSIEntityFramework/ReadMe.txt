@@ -86,3 +86,7 @@ Ideas:
 
 Next Steps:
 Maybe a field will contain converters - maybe these can be added by extension
+
+References:
+This project uses a code from the following article: https://msdn.microsoft.com/en-us/library/hh147177.aspx
+The sample code from this project is used as a DLL to support the claims auth necessary for connecting to SharePoint
